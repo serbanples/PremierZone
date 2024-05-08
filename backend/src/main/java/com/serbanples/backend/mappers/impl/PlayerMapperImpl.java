@@ -2,11 +2,13 @@ package com.serbanples.backend.mappers.impl;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import com.serbanples.backend.domain.dto.PlayerDto;
 import com.serbanples.backend.domain.entities.PlayerEntity;
 import com.serbanples.backend.mappers.Mapper;
 
+@Component
 public class PlayerMapperImpl implements Mapper<PlayerEntity, PlayerDto> {
 
     @Autowired

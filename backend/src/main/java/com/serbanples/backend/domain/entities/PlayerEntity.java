@@ -26,7 +26,7 @@ public class PlayerEntity {
 
     private String nation;
 
-    private String postion;
+    private String position;
 
     private String team;
 
