@@ -1,13 +1,15 @@
 package com.serbanples.backend.controllers;
 
-import org.springframework.web.bind.annotation.PostMapping;
+import java.io.IOException;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.serbanples.backend.services.WebScrapingService;
 
-import java.io.IOException;
-
 @RestController
+@RequestMapping(path = "/api/scrape")
 public class ScrapingController {
 
     private WebScrapingService webScrapingService;
@@ -16,8 +18,10 @@ public class ScrapingController {
         this.webScrapingService = webScrapingService;
     }
 
-    @PostMapping(path = "/scrape")
-    public void scrapeData() throws IOException, InterruptedException {
+    @GetMapping
+    public String scrapePremierLeagueStats() throws IOException, InterruptedException {
         webScrapingService.scrapeData();
+        return "Scraping process initiated. Check the server logs for progress.";
     }
+
 }

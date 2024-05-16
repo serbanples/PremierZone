@@ -4,66 +4,71 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.serbanples.backend.domain.dto.PlayerDto;
+import com.serbanples.backend.domain.entities.PlayerEntity;
+import com.serbanples.backend.mappers.Mapper;
+import com.serbanples.backend.services.PlayerService;
 import com.serbanples.backend.services.WebScrapingService;
 
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class WebScrapingServiceImpl implements WebScrapingService {
+    
+    @Autowired
+    private PlayerService playerService;
+
+    @Autowired
+    private Mapper<PlayerEntity, PlayerDto> playerMapper;
 
     @Override
     public void scrapeData() throws IOException, InterruptedException {
-        List<String> allTeams = new ArrayList<>();
+        try {
+            Document doc = Jsoup.connect("https://fbref.com/en/comps/9/Premier-League-Stats").get();
+            Elements tables = doc.select("table.stats_table");
+            Element table = tables.get(0);
 
-        // Fetch HTML content
-        String url = "https://fbref.com/en/comps/9/Premier-League-Stats";
-        Document doc = Jsoup.connect(url).get();
-        Element table = doc.selectFirst("table.stats_table"); // Select the first table
+            Elements links = table.select("a[href]");
+            List<String> teamUrls = new ArrayList<>();
 
-        // Extract squad URLs
-        Elements links = table.select("a[href^='/squads/']");
-        for (Element link : links) {
-            String teamUrl = "https://fbref.com" + link.attr("href");
-            allTeams.add(teamUrl);
-        }
-
-        List<String> teamDataList = new ArrayList<>();
-
-        for (String teamUrl : allTeams) {
-            Document teamDoc = Jsoup.connect(teamUrl).get();
-            Element stats = teamDoc.selectFirst("table.stats_table");
-
-            if (stats != null) {
-                String teamName = teamUrl.substring(teamUrl.lastIndexOf("/") + 1).replace("-Stats", "");
-                String htmlStr = stats.outerHtml();
-
-                // Format the data as needed
-                // For example: Droplevel, etc.
-
-                // Append team name to the data
-                teamDataList.add(htmlStr + "," + teamName);
+            for (Element link : links) {
+                String url = link.attr("href");
+                if (url.contains("/squads/")) {
+                    teamUrls.add("https://fbref.com" + url);
+                }
             }
 
-            // Delay between requests to avoid being blocked
-            TimeUnit.SECONDS.sleep(5);
-        }
+            for (String teamUrl : teamUrls) {
+                String teamName = teamUrl.substring(teamUrl.lastIndexOf("/") + 1, teamUrl.lastIndexOf("-Stats"));
+                Document teamDoc = Jsoup.connect(teamUrl).get();
+                Element statsTable = teamDoc.selectFirst("table.stats_table");
 
-        // Write data to a CSV file or store it in the database
-        writeToCsv(teamDataList);
-    }
+                if (statsTable != null) {
+                    Elements rows = statsTable.select("tr");
 
-    private void writeToCsv(List<String> teamDataList) throws IOException {
-        try (FileWriter writer = new FileWriter("./backend/src/main/java/com/serbanples/backend/services/stats.csv")) {
-            for (String teamData : teamDataList) {
-                writer.write(teamData + "\n");
+                    for (int i = 2; i < rows.size() - 2; i++) {
+                        Element row = rows.get(i);
+                        Elements cols = row.select("th,td");
+                        if (cols.size() >= 4) { 
+                            PlayerDto playerDto = new PlayerDto();
+                            playerDto.setName(cols.get(0).text());
+                            playerDto.setNation(cols.get(1).text());
+                            playerDto.setPosition(cols.get(2).text());
+                            playerDto.setTeam(teamName);
+                            PlayerEntity playerEntity = playerMapper.mapFrom(playerDto);
+                            playerService.save(playerEntity);
+                        }
+                    }
+                }
+                Thread.sleep(5000);
             }
-        } catch (IOException e) {
+
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
     }
